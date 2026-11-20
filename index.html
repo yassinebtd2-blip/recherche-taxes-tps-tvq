@@ -139,7 +139,7 @@ footer { color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line
   <div class="wrap">
     <div class="top">
       <h1>Recherche TPS/TVH et TVQ</h1>
-      <span class="stamp" id="stamp">Contenu et articles vérifiés le 20 novembre 2026</span>
+      <span class="stamp" id="stamp">Contenu à jour au 20 novembre 2026</span>
     </div>
     <nav aria-label="Sections">
       <a href="#recherche" data-view="recherche">Recherche</a>
@@ -811,11 +811,11 @@ $("#timeline").innerHTML = NOUVEAUTES.map(n => `
 $("#srcgrid").innerHTML = SOURCES.map(([t, u, d]) => `<div class="src"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a><span>${esc(d)}</span></div>`).join("");
 
 /* ================= VERSION EN LIGNE ================= */
-// Date de la dernière mise à jour du contenu (modifiée par la tâche hebdomadaire).
+// Date de la dernière modification du contenu (mise à jour par la tâche hebdomadaire, seulement s'il y a un vrai changement).
 const DERNIERE_MISE_A_JOUR = "20 novembre 2026";
 const URL_EN_LIGNE = "https://yassinebtd2-blip.github.io/recherche-taxes-tps-tvq/";
 const URL_CLAUDE = "https://claude.ai/artifact/EV6UrwyWk62KbHe6cnHSay";
-$("#stamp").textContent = "Contenu et articles vérifiés le " + DERNIERE_MISE_A_JOUR;
+$("#stamp").textContent = "Contenu à jour au " + DERNIERE_MISE_A_JOUR;
 // Le fichier ouvert depuis l'ordinateur redirige vers la version en ligne, toujours à jour.
 if (location.protocol === "file:" && location.hash !== "#local" && navigator.onLine) {
   $("#redirect-banner").hidden = false;
