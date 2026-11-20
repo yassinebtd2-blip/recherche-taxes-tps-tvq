@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recherche TPS/TVH et TVQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Outil de travail : barre d'onglets, colonne de recherche, fiches à déplier. Bleu = fédéral, bordeaux = Québec. */
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #1b2330;
+  --muted: #5b6575;
+  --line: #dde1e7;
+  --accent: #1d4f91;
+  --accent-soft: #e6eef8;
+  --qc: #8a2d3b;
+  --qc-soft: #f6e8ea;
+  --warn: #8a5a00;
+  --warn-soft: #fbf1dc;
+  --ok: #1f6b45;
+  --font-display: "IBM Plex Serif", Georgia, serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --surface: #1a2029; --ink: #e5e9ef; --muted: #9aa4b3; --line: #2c3440;
+    --accent: #7fb0ee; --accent-soft: #1d2a3d; --qc: #e39aa6; --qc-soft: #3a2228;
+    --warn: #e6b65c; --warn-soft: #3a2f18; --ok: #6fcf9b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #1a2029; --ink: #e5e9ef; --muted: #9aa4b3; --line: #2c3440;
+  --accent: #7fb0ee; --accent-soft: #1d2a3d; --qc: #e39aa6; --qc-soft: #3a2228;
+  --warn: #e6b65c; --warn-soft: #3a2f18; --ok: #6fcf9b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body); }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+header { background: var(--surface); border-bottom: 1px solid var(--line); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; padding: 18px 0 10px; }
+h1 { font: 600 1.45rem/1.2 var(--font-display); margin: 0; text-wrap: balance; }
+.stamp { color: var(--muted); font-size: .82rem; }
+nav { display: flex; gap: 4px; overflow-x: auto; }
+nav a { padding: 10px 14px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; font-weight: 500; }
+nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+main { padding: 24px 0 60px; }
+section[hidden] { display: none; }
+h2 { font: 600 1.2rem/1.3 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
+.lede { color: var(--muted); margin: 0 0 18px; max-width: 70ch; }
+.searchbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+input[type="search"], input[type="text"], input[type="number"], select, textarea {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+}
+#q { flex: 1 1 320px; font-size: 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.chip { font: inherit; font-size: .85rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.count { color: var(--muted); font-size: .85rem; margin-bottom: 10px; }
+.cards { display: grid; gap: 10px; }
+details.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+details.card > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid; gap: 4px; }
+details.card > summary::-webkit-details-marker { display: none; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.card-title { font-weight: 600; font-size: 1.02rem; }
+.card-sum { color: var(--muted); font-size: .9rem; max-width: 80ch; }
+.tag { font-size: .72rem; font-weight: 600; letter-spacing: .03em; padding: 2px 8px; border-radius: 4px; }
+.tag.tps { background: var(--accent-soft); color: var(--accent); }
+.tag.tvq { background: var(--qc-soft); color: var(--qc); }
+.tag.new { background: var(--warn-soft); color: var(--warn); }
+.tag.cat { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 500; }
+.card-body { padding: 0 16px 16px; border-top: 1px solid var(--line); }
+.card-body ul { margin: 12px 0; padding-left: 20px; max-width: 80ch; }
+.card-body li { margin: 4px 0; }
+.refs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.ref { font: .8rem var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.links { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .88rem; }
+.card-actions { margin-top: 12px; }
+button.btn { font: inherit; font-weight: 500; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); border-radius: 6px; padding: 9px 16px; cursor: pointer; }
+button.btn.ghost { background: transparent; color: var(--accent); }
+button.btn:disabled { opacity: .55; cursor: default; }
+mark { background: var(--warn-soft); color: inherit; padding: 0 1px; }
+.empty { padding: 24px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 8px; }
+/* Assistant */
+.ask { display: grid; gap: 10px; }
+textarea { width: 100%; min-height: 110px; resize: vertical; }
+.ask-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.notice { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: .9rem; max-width: 80ch; }
+.answer { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 20px 14px; margin-top: 16px; max-width: 860px; }
+.answer h3 { font: 600 1rem var(--font-display); margin: 16px 0 4px; }
+.answer p, .answer li { max-width: 78ch; }
+.answer code { font: .85em var(--font-mono); background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+.ctx { font-size: .82rem; color: var(--muted); margin-top: 10px; }
+.history { margin-top: 24px; }
+.history h3 { font-size: .9rem; color: var(--muted); font-weight: 600; margin: 0 0 6px; }
+.history button { font: inherit; font-size: .88rem; background: none; border: none; color: var(--accent); cursor: pointer; padding: 3px 0; text-align: left; display: block; }
+/* Calculateur */
+.calc { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; align-items: start; }
+@media (max-width: 720px) { .calc { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+label { font-size: .85rem; font-weight: 600; display: grid; gap: 4px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; font: inherit; font-size: .88rem; padding: 8px; background: var(--surface); color: var(--ink); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: .8rem; color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; }
+tr.total td { font-weight: 600; border-bottom: 0; border-top: 2px solid var(--ink); }
+.tablebox { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+.note { color: var(--muted); font-size: .85rem; max-width: 80ch; }
+/* Nouveautés */
+.timeline { display: grid; gap: 10px; }
+.tl { display: grid; grid-template-columns: 130px 1fr; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+@media (max-width: 560px) { .tl { grid-template-columns: 1fr; gap: 4px; } }
+.tl time { font: 500 .88rem var(--font-mono); color: var(--muted); }
+.tl p { margin: 4px 0 0; max-width: 78ch; }
+.srcgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.src { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+.src a { font-weight: 600; }
+.src span { color: var(--muted); font-size: .88rem; }
+footer { color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); padding: 16px 0 30px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>Recherche TPS/TVH et TVQ</h1>
+      <span class="stamp" id="stamp">Contenu et articles vérifiés le 20 novembre 2026</span>
+    </div>
+    <nav aria-label="Sections">
+      <a href="#recherche" data-view="recherche">Recherche</a>
+      <a href="#assistant" data-view="assistant">Assistant</a>
+      <a href="#calculateur" data-view="calculateur">Calculateur</a>
+      <a href="#taux" data-view="taux">Taux</a>
+      <a href="#nouveautes" data-view="nouveautes">Nouveautés 2026</a>
+      <a href="#sources" data-view="sources">Sources officielles</a>
+    </nav>
+  </div>
+</header>
+
+<div id="redirect-banner" class="wrap" hidden>
+  <div class="notice" style="margin-top:14px">Ouverture de la version en ligne à jour… <a href="#local" id="stay-local">Rester sur cette copie locale</a></div>
+</div>
+<main class="wrap">
+  <!-- RECHERCHE -->
+  <section id="v-recherche">
+    <h2>Fiches de recherche</h2>
+    <p class="lede">Tapez un mot-clé (ex. « petit fournisseur », « exportation », « habitation neuve », « article 169 ») ou filtrez par thème. Chaque fiche renvoie aux articles de loi et aux pages officielles.</p>
+    <div class="searchbar">
+      <input type="search" id="q" placeholder="Rechercher un sujet, un article, un mot-clé…" aria-label="Rechercher dans les fiches">
+      <select id="regime" aria-label="Régime">
+        <option value="">TPS/TVH et TVQ</option>
+        <option value="tps">TPS/TVH seulement</option>
+        <option value="tvq">TVQ seulement</option>
+      </select>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="count" id="count"></div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <!-- ASSISTANT -->
+  <section id="v-assistant" hidden>
+    <h2>Assistant de recherche</h2>
+    <p class="lede">Posez une question précise. L'assistant s'appuie sur les fiches pertinentes de cette application et cite les articles de la LTA et de la LTVQ à consulter.</p>
+    <div class="notice" id="ai-notice">Les réponses sont un point de départ de recherche, pas un avis professionnel. Vérifiez toujours les articles cités dans LégisQuébec ou sur le site de Justice Canada, ainsi que les positions de l'ARC et de Revenu Québec.</div>
+    <div class="ask" style="margin-top:14px">
+      <label for="ask-q">Votre question</label>
+      <textarea id="ask-q" placeholder="Ex. : Un consultant inscrit au Québec facture un client situé en Ontario pour un service de gestion. Quelle taxe doit-il facturer ?"></textarea>
+      <div class="examples" id="examples"></div>
+      <div class="ask-row">
+        <button class="btn" id="ask-btn" type="button">Rechercher la réponse</button>
+        <button class="btn ghost" id="ask-stop" type="button" hidden>Arrêter</button>
+        <span class="note" id="ask-status"></span>
+      </div>
+    </div>
+    <div id="answer"></div>
+    <div class="history" id="history"></div>
+  </section>
+
+  <!-- CALCULATEUR -->
+  <section id="v-calculateur" hidden>
+    <h2>Calculateur de taxes</h2>
+    <p class="lede">Ajoutez les taxes à un prix, ou retrouvez le montant avant taxes à partir d'un total. Au Québec, la TVQ se calcule sur le prix avant TPS.</p>
+    <div class="calc">
+      <div class="panel">
+        <div class="seg" role="group" aria-label="Sens du calcul">
+          <button type="button" id="dir-add" aria-pressed="true">Ajouter les taxes</button>
+          <button type="button" id="dir-ext" aria-pressed="false">Extraire les taxes</button>
+        </div>
+        <label for="amt"><span id="amt-label">Montant avant taxes ($)</span>
+          <input type="number" id="amt" min="0" step="0.01" value="1000">
+        </label>
+        <label for="prov">Province ou territoire du lieu de fourniture
+          <select id="prov"></select>
+        </label>
+        <p class="note" id="prov-note"></p>
+      </div>
+      <div>
+        <div class="tablebox"><table id="calc-out"></table></div>
+        <p class="note" style="margin-top:10px">Arrondi au cent près pour chaque taxe. Le lieu de fourniture dépend du type de bien ou de service : voir la fiche « Lieu de fourniture ».</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAUX -->
+  <section id="v-taux" hidden>
+    <h2>Taux en vigueur</h2>
+    <p class="lede">Taux applicables aux fournitures taxables (non détaxées) au 20 novembre 2026.</p>
+    <div class="tablebox"><table id="rates"></table></div>
+    <p class="note" style="margin-top:10px">TVH : LTA, art. 165(2) et taux réglementaires par province. TVQ : LTVQ, art. 16. La Nouvelle-Écosse est passée de 15 % à 14 % le 1er avril 2025 (règles transitoires : avis TPS/TVH 342 et 343). Les provinces sans TVH peuvent imposer leur propre TVP, hors de la portée de cet outil.</p>
+  </section>
+
+  <!-- NOUVEAUTÉS -->
+  <section id="v-nouveautes" hidden>
+    <h2>Nouveautés 2025-2026</h2>
+    <p class="lede">Changements récents touchant la TPS/TVH ou la TVQ. Vérifiez les règles transitoires avant de les appliquer.</p>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <!-- SOURCES -->
+  <section id="v-sources" hidden>
+    <h2>Sources officielles</h2>
+    <p class="lede">Lois, publications administratives et jurisprudence. Les liens s'ouvrent dans un nouvel onglet.</p>
+    <div class="srcgrid" id="srcgrid"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Outil de recherche personnel. Le contenu résume la législation et les positions administratives et peut contenir des simplifications. Consultez toujours le texte officiel des lois et règlements.</div>
+</footer>
+
+<script>
+/* ================= DONNÉES ================= */
+const L = {
+  lta: "https://laws-lois.justice.gc.ca/fra/lois/E-15/",
+  ltvq: "https://www.legisquebec.gouv.qc.ca/fr/document/lc/T-0.1",
+  laf: "https://www.legisquebec.gouv.qc.ca/fr/document/lc/A-6.002",
+  arcTps: "https://www.canada.ca/fr/agence-revenu/services/impot/entreprises/sujets/tps-tvh-entreprises.html",
+  arcTaux: "https://www.canada.ca/fr/agence-revenu/services/impot/entreprises/sujets/tps-tvh-entreprises/facturer-percevoir-quel-taux/calculatrice.html",
+  arcFacturer: "https://www.canada.ca/fr/agence-revenu/services/impot/entreprises/sujets/tps-tvh-entreprises/chargez-tps/facturer-tps-tvh.html",
+  arcAph: "https://www.canada.ca/fr/agence-revenu/services/impot/entreprises/sujets/tps-tvh-entreprises/remboursements-tps-tvh/remboursement-tps-tvh-acheteurs-premiere-habitations.html",
+  arcHabNeuves: "https://www.canada.ca/fr/agence-revenu/services/impot/entreprises/sujets/tps-tvh-entreprises/facturer-percevoir-construction-residentielle/remboursement-habitations-neuves.html",
+  arcNews122: "https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/publications/news122/news122-accise-tps-tvh-no-122.html",
+  arcAvis342: "https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/publications/notice342/baisse-taux-tvh-nouvelle-ecosse-questions-reponses-regles-transitoires-generales-visant-biens-meubles-et-services.html",
+  rq: "https://www.revenuquebec.ca/fr/entreprises/taxes/tpstvh-et-tvq/",
+  rqTvh: "https://www.revenuquebec.ca/fr/entreprises/taxes/tpstvh-et-tvq/regles-de-base-relatives-a-lapplication-de-la-tpstvh-et-de-la-tvq/quest-ce-que-la-tvh/taux-de-la-tvh/",
+  rqDetaxees: "https://www.revenuquebec.ca/fr/entreprises/taxes/tpstvh-et-tvq/regles-de-base-relatives-a-lapplication-de-la-tpstvh-et-de-la-tvq/types-de-fournitures/fournitures-detaxees/",
+  rqAliments: "https://www.revenuquebec.ca/fr/citoyens/taxes/biens-et-services-taxables-detaxes-ou-exoneres/tps-et-tvq/alimentation-produits-taxables-detaxes-ou-exoneres/produits-alimentaires-de-base/",
+  rqDetax2026: "https://www.revenuquebec.ca/fr/salle-de-presse/nouvelles-fiscales/details/2026-08-07/precisions-concernant-la-detaxation-de-certains-produits-dans-le-regime-de-la-tvq/",
+  rqAph: "https://www.revenuquebec.ca/fr/citoyens/taxes/remboursement-de-taxes/remboursement-tpstvq-pour-habitation-neuve-ou-renovee/remboursement-de-la-tps-pour-lachat-dune-premiere-habitation/",
+  rqSuivi: "https://www.revenuquebec.ca/fr/salle-de-presse/nouvelles-fiscales/details/2026-06-12/mise-a-jour-application-de-la-tpstvh-et-de-la-tvq-aux-commissions-de-suivi-liees-aux-fonds-communs-de-placement/",
+  rqNouvelles: "https://www.revenuquebec.ca/fr/salle-de-presse/nouvelles-fiscales/",
+  finQc: "https://www.quebec.ca/gouvernement/ministeres-organismes/finances/publications",
+  canlii: "https://www.canlii.org/fr/",
+  cci: "https://www.tcc-cci.gc.ca/fr"
+};
+
+const FICHES = [
+ { id:"taux", titre:"Taux de TPS, TVH et TVQ", regimes:["tps","tvq"], cat:"Notions de base",
+   mots:"taux 5 % 9,975 % 14,975 % 13 % 14 % 15 % harmonisée calcul tvq sur prix sans tps",
+   resume:"TPS 5 % partout au Canada ; TVH de 13 % à 15 % dans les provinces participantes ; TVQ 9,975 % au Québec.",
+   points:[
+     "TPS : 5 % sur les fournitures taxables effectuées au Canada hors des provinces participantes.",
+     "TVH : Ontario 13 % ; Nouvelle-Écosse 14 % (depuis le 1er avril 2025) ; Nouveau-Brunswick, Terre-Neuve-et-Labrador et Île-du-Prince-Édouard 15 %. La TVH comprend la TPS de 5 % et une partie provinciale.",
+     "TVQ : 9,975 %. Depuis le 1er janvier 2013, elle se calcule sur le prix de vente sans la TPS (pas de taxe sur la taxe). Taux combiné au Québec : 14,975 %.",
+     "Une fourniture détaxée est taxable au taux de 0 % : aucune taxe perçue, mais les CTI/RTI restent admissibles."
+   ],
+   refs:["LTA art. 165(1)","LTA art. 165(2)","LTVQ art. 16"],
+   liens:[["Taux TPS/TVH (ARC)",L.arcTaux],["Taux de la TVH (Revenu Québec)",L.rqTvh]] },
+
+ { id:"inscription", titre:"Inscription et seuil du petit fournisseur", regimes:["tps","tvq"], cat:"Inscription",
+   mots:"inscription petit fournisseur 30 000 $ 50 000 $ quatre trimestres civils inscription volontaire numéro organisme de services publics osp bienfaisance",
+   resume:"L'inscription est obligatoire dès que les fournitures taxables mondiales (avec les personnes associées) dépassent 30 000 $.",
+   points:[
+     "Test des quatre trimestres civils consécutifs : si le total dépasse 30 000 $, la personne cesse d'être petit fournisseur à la fin du mois suivant le trimestre où le seuil est franchi.",
+     "Test d'un seul trimestre : si le seuil est dépassé dans un seul trimestre civil, l'inscription s'applique dès la fourniture qui fait franchir le seuil, et la taxe doit être perçue sur celle-ci.",
+     "Organismes de services publics : seuil de 50 000 $. Les organismes de bienfaisance et institutions publiques peuvent aussi être réputés petits fournisseurs selon leurs recettes brutes (250 000 $), en vertu du par. 148.1(2).",
+     "On inclut les fournitures taxables (détaxées comprises) des personnes associées, mais on exclut les ventes d'immobilisations, l'achalandage et les services financiers.",
+     "L'inscription volontaire est possible pour récupérer les CTI/RTI.",
+     "Au Québec, Revenu Québec administre la TPS/TVH et la TVQ pour la plupart des entreprises ; les numéros sont distincts (RT pour la TPS, TQ pour la TVQ)."
+   ],
+   refs:["LTA art. 148","LTA art. 148.1(2)","LTA art. 240","LTVQ art. 294","LTVQ art. 407 et s."],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"fournitures", titre:"Fournitures taxables, détaxées et exonérées", regimes:["tps","tvq"], cat:"Notions de base",
+   mots:"fourniture taxable détaxée exonérée annexe v annexe vi taux zéro activité commerciale qualification",
+   resume:"La qualification de la fourniture détermine si la taxe s'applique et si les CTI/RTI sont admissibles.",
+   points:[
+     "Taxable : taxe au taux applicable, CTI/RTI admissibles.",
+     "Détaxée (taux de 0 %) : aucune taxe, CTI/RTI admissibles. Ex. : produits alimentaires de base, médicaments sur ordonnance, appareils médicaux, exportations, certains services à des non-résidents.",
+     "Exonérée : aucune taxe, aucun CTI/RTI sur les intrants liés. Ex. : habitations usagées, location résidentielle à long terme, la plupart des services de santé et d'enseignement, services financiers, garde d'enfants.",
+     "Les fournitures exonérées ne sont pas faites dans le cadre d'une « activité commerciale », d'où la perte des CTI.",
+     "Les régimes TPS et TVQ sont largement harmonisés, mais des écarts existent (ex. : détaxation TVQ seulement de certains aliments depuis le 15 juillet 2026, articles d'allaitement détaxés en TVQ)."
+   ],
+   refs:["LTA art. 123(1)","LTA annexe V (exonérées)","LTA annexe VI (détaxées)","LTVQ art. 93 et s. (exonérées)","LTVQ art. 173 et s. (détaxées)"],
+   liens:[["Fournitures détaxées (Revenu Québec)",L.rqDetaxees],["Loi sur la taxe d'accise",L.lta],["Loi sur la taxe de vente du Québec",L.ltvq]] },
+
+ { id:"aliments", titre:"Produits alimentaires de base et détaxation TVQ 2026", regimes:["tps","tvq"], cat:"Biens et services", nouveau:true,
+   mots:"aliments épicerie produits alimentaires de base détaxé restaurant grignotines boissons gazeuses confiseries papier hygiénique mouchoirs 15 juillet 2026 granola crème glacée muffins noix salées",
+   resume:"Les produits alimentaires de base sont détaxés en TPS et en TVQ. Depuis le 15 juillet 2026, la TVQ ne s'applique plus à certains produits qui restaient taxables.",
+   points:[
+     "Restent taxables en général : boissons gazeuses, confiseries, grignotines, boissons alcoolisées, aliments préparés et repas vendus dans les restaurants ou pour emporter.",
+     "Nouveauté TVQ seulement (15 juillet 2026) : certains produits deviennent détaxés en TVQ, dont les produits de boulangerie en emballages de cinq portions individuelles ou moins, le granola, les barres céréalières et muffins en barre, les contenants de crème glacée de moins de 500 ml, ainsi que le papier hygiénique et les mouchoirs.",
+     "La TPS continue de s'appliquer à ces produits lorsqu'ils étaient déjà taxables en TPS.",
+     "Exclusions de la nouvelle mesure : ventes par distributeur automatique, contrats de traiteur, et établissements dont la totalité ou la quasi-totalité des ventes d'aliments et boissons est taxable (la plupart des restaurants).",
+     "Vérifiez la liste complète des produits visés dans la nouvelle fiscale de Revenu Québec du 7 août 2026."
+   ],
+   refs:["LTA annexe VI, partie III","LTVQ art. 177 et s."],
+   liens:[["Produits alimentaires de base (Revenu Québec)",L.rqAliments],["Précisions sur la détaxation 2026 (RQ)",L.rqDetax2026]] },
+
+ { id:"cti", titre:"CTI et RTI : conditions et pièces justificatives", regimes:["tps","tvq"], cat:"Crédits et remboursements",
+   mots:"crédit de taxe sur les intrants cti rti remboursement de la taxe sur les intrants pièces justificatives factures 100 $ 500 $ délai quatre ans repas divertissement 50 %",
+   resume:"Un inscrit récupère la taxe payée sur ses intrants utilisés dans ses activités commerciales, à condition de détenir les renseignements prescrits.",
+   points:[
+     "Condition de base : bien ou service acquis pour consommation, utilisation ou fourniture dans le cadre d'activités commerciales (taxables ou détaxées).",
+     "Renseignements exigés selon le montant de la facture (taxes comprises) : moins de 100 $ = nom du fournisseur, date, montant total ; de 100 $ à 499,99 $ = en plus, numéro d'inscription du fournisseur et taxe payable (ou mention qu'elle est incluse) ; 500 $ et plus = en plus, nom de l'acquéreur, modalités de paiement et description des fournitures.",
+     "Délai : en général, la déclaration visant la dernière période de déclaration se terminant dans les quatre ans suivant la période où le CTI aurait pu être demandé (délai plus court pour certaines grandes entreprises et institutions financières).",
+     "Repas et divertissements : CTI/RTI limité à 50 % de la taxe payée, sauf exceptions.",
+     "Biens à usage mixte : règles d'utilisation principale (plus de 50 %) pour les immobilisations ; répartition raisonnable pour les intrants courants.",
+     "Les anciennes restrictions de RTI imposées aux grandes entreprises en TVQ ont été complètement abolies le 1er janvier 2021."
+   ],
+   refs:["LTA art. 169","LTA art. 169(4)","LTA art. 236","LTVQ art. 199 et s.","LTVQ art. 201","LTVQ art. 457.1","Règlement sur les renseignements nécessaires à une demande de crédit de taxe sur les intrants (TPS/TVH)"],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"lieu", titre:"Lieu de fourniture : quelle province, quelle taxe ?", regimes:["tps","tvq"], cat:"Lieu de fourniture",
+   mots:"lieu de fourniture province ontario tvh adresse du client livraison bien meuble service incorporel immeuble fourniture effectuée au québec hors québec",
+   resume:"La taxe à facturer (TPS, TVH ou TPS + TVQ) dépend de l'endroit où la fourniture est réputée effectuée.",
+   points:[
+     "Biens meubles corporels : en général, la province où le bien est livré ou rendu disponible à l'acquéreur.",
+     "Services : en général, la province de l'adresse du destinataire obtenue dans le cours normal des activités (adresse d'affaires ou domicile) ; règles particulières pour les services liés à un immeuble, à un bien meuble précis, au transport de passagers, etc.",
+     "Biens meubles incorporels (licences, droits) : selon la province où le bien peut être utilisé ou selon l'adresse du destinataire.",
+     "Immeubles : la province où l'immeuble est situé.",
+     "TVQ : une fourniture effectuée au Québec est assujettie à la TVQ ; une fourniture effectuée ailleurs au Canada par un inscrit au Québec est assujettie à la TPS ou à la TVH de cette province, mais pas à la TVQ.",
+     "Exemple : un consultant de Montréal qui rend un service à une entreprise de Toronto facture la TVH de 13 % et non la TPS + TVQ."
+   ],
+   refs:["LTA art. 144.1","LTA annexe IX","Règlement sur les règles du lieu de fourniture au Canada (TPS/TVH)","LTVQ art. 19 et s."],
+   liens:[["Facturer ou percevoir la taxe (ARC)",L.arcFacturer],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"export", titre:"Exportations et services à des non-résidents", regimes:["tps","tvq"], cat:"International",
+   mots:"exportation non-résident détaxé services exportés étranger états-unis international importation biens exportés",
+   resume:"Les biens exportés et de nombreux services rendus à des non-résidents sont détaxés, ce qui préserve les CTI/RTI.",
+   points:[
+     "Biens exportés : détaxés si les conditions sont remplies (exportation par le fournisseur, ou par l'acquéreur avec preuve et sans transformation au Canada).",
+     "Services à des non-résidents : souvent détaxés, mais de nombreuses exclusions s'appliquent (services rendus à un particulier présent au Canada, services liés à un immeuble au Canada, conseils liés à des biens situés au Canada, etc.).",
+     "Conservez la preuve du statut de non-résident et de l'exportation.",
+     "Importations : la TPS (ou la TVH) est perçue par l'ASFC à la frontière ; la TVQ sur les biens apportés au Québec peut nécessiter une autocotisation."
+   ],
+   refs:["LTA annexe VI, partie V","LTA art. 212 et s. (partie IX, section III)","LTVQ art. 17 et s.","LTVQ art. 179 et s."],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["Fournitures détaxées (Revenu Québec)",L.rqDetaxees]] },
+
+ { id:"numerique", titre:"Économie numérique et régime d'inscription simplifié", regimes:["tps","tvq"], cat:"International",
+   mots:"économie numérique fournisseur non-résident plateforme distribution régime simplifié commerce électronique services numériques netflix amazon hors québec",
+   resume:"Les fournisseurs hors Québec ou hors Canada qui vendent à des consommateurs doivent s'inscrire au régime simplifié au-delà de 30 000 $.",
+   points:[
+     "TVQ : régime simplifié en vigueur depuis le 1er janvier 2019 pour les fournisseurs hors Québec (incorporels et services), étendu aux biens meubles corporels depuis le 1er septembre 2019.",
+     "TPS/TVH : régime simplifié depuis le 1er juillet 2021 pour les fournisseurs non résidents, les exploitants de plateformes de distribution et certains entrepôts de distribution.",
+     "Seuil : 30 000 $ de fournitures taxables à des consommateurs (non-inscrits) sur 12 mois.",
+     "Les inscrits au régime simplifié ne peuvent pas demander de CTI/RTI, et leurs clients ne peuvent pas récupérer la taxe qu'ils leur paient.",
+     "Vérifiez le numéro d'inscription de vos fournisseurs étrangers : un inscrit au régime simplifié ne donne pas droit au CTI/RTI."
+   ],
+   refs:["LTA art. 211.1 et s.","LTVQ art. 477.2 et s."],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"immeubles", titre:"Immeubles : habitations, location et terrains", regimes:["tps","tvq"], cat:"Immobilier",
+   mots:"immeuble habitation neuve usagée constructeur autocotisation location résidentielle commerciale terrain vacant rénovations majeures",
+   resume:"Les habitations neuves sont taxables ; les habitations usagées et la location résidentielle à long terme sont exonérées.",
+   points:[
+     "Vente d'une habitation neuve ou ayant subi des rénovations majeures par un constructeur : taxable.",
+     "Vente d'une habitation usagée : exonérée en général.",
+     "Location résidentielle d'un mois ou plus : exonérée. Location commerciale : taxable.",
+     "Constructeur qui loue une habitation neuve ou l'occupe : autocotisation sur la juste valeur marchande.",
+     "Vente d'un immeuble par un particulier (hors entreprise) : exonérée en général, avec exceptions (lotissement, immeuble utilisé dans une activité commerciale, etc.).",
+     "Vente d'un immeuble entre inscrits : l'acquéreur inscrit autocotise et verse la taxe."
+   ],
+   refs:["LTA annexe V, partie I","LTA art. 191","LTA art. 221(2)","LTA art. 228(4)","LTVQ art. 93 et s.","LTVQ art. 223","LTVQ art. 423","LTVQ art. 438"],
+   liens:[["Remboursement pour habitations neuves (ARC)",L.arcHabNeuves]] },
+
+ { id:"remb-hab", titre:"Remboursements pour habitations neuves et première habitation", regimes:["tps","tvq"], cat:"Immobilier", nouveau:true,
+   mots:"remboursement habitation neuve première habitation aph 50 000 $ 1,5 million logement locatif fp-2190 rc7190 constructeur",
+   resume:"Le nouveau remboursement de TPS pour les acheteurs d'une première habitation peut atteindre 50 000 $.",
+   points:[
+     "Remboursement de la TPS pour les acheteurs d'une première habitation : jusqu'à 50 000 $ sur une habitation neuve ou ayant subi des rénovations majeures d'une valeur maximale de 1,5 M$ ; remboursement complet jusqu'à 1 M$, puis réduction progressive entre 1 M$ et 1,5 M$.",
+     "Vise les contrats conclus après le 26 mai 2025 et avant 2031. La loi (projet de loi C-4) a été sanctionnée le 12 mars 2026.",
+     "Il s'ajoute au remboursement existant de la TPS/TVH pour habitations neuves. Au Québec, formulaire FP-2190.APH (Revenu Québec).",
+     "Il vise la TPS ou la partie fédérale de la TVH seulement, pas la TVQ.",
+     "Le remboursement TVQ pour habitations neuves a ses propres conditions et plafonds : à vérifier auprès de Revenu Québec.",
+     "Logements construits spécialement pour la location : remboursement de la totalité de la TPS attribuable au logement, sans plafond, si la construction a commencé après le 13 septembre 2023 et avant 2031 et est achevée en grande partie avant 2036 (par. 256.2(3.1) et (3.2))."
+   ],
+   refs:["LTA art. 254(2.1)","LTA art. 254.1(2.1)","LTA art. 255(2.1)","LTA art. 256(2.1)","LTA art. 256.2(3.1)","Projet de loi C-4 (sanctionné le 12 mars 2026)"],
+   liens:[["Remboursement première habitation (ARC)",L.arcAph],["Remboursement première habitation (Revenu Québec)",L.rqAph],["Nouvelles sur l'accise et la TPS/TVH no 122",L.arcNews122]] },
+
+ { id:"financiers", titre:"Services financiers et commissions de suivi", regimes:["tps","tvq"], cat:"Biens et services", nouveau:true,
+   mots:"services financiers exonérés intérêts assurance commissions de suivi fonds communs courtier institution financière désignée ifdp 1er juillet 2026",
+   resume:"Les services financiers sont exonérés, mais les commissions de suivi des fonds communs sont taxables depuis le 1er juillet 2026.",
+   points:[
+     "Exonérés en général : prêts, intérêts, émission de titres, assurance, opérations sur comptes.",
+     "Exclus de la définition (donc souvent taxables) : services de gestion de placements, conseils, recouvrement de créances dans certains cas.",
+     "Depuis le 1er juillet 2026, les commissions de suivi versées aux courtiers en fonds communs de placement sont traitées comme taxables en TPS/TVH ; Revenu Québec a confirmé l'harmonisation en TVQ.",
+     "Jusqu'au 1er janvier 2028, Revenu Québec vérifiera qu'un courtier qui demande des CTI ou des RTI liés à ces fournitures a bien perçu et versé la TPS/TVH et la TVQ.",
+     "Les institutions financières désignées particulières (IFDP) sont soumises à des règles distinctes de calcul de la TVH et de la TVQ."
+   ],
+   refs:["LTA art. 123(1) « service financier »","LTA annexe V, partie VII","LTVQ art. 1 « service financier »"],
+   liens:[["Commissions de suivi : mise à jour (RQ)",L.rqSuivi]] },
+
+ { id:"osp", titre:"Organismes de services publics (OSP) et remboursements partiels", regimes:["tps","tvq"], cat:"Crédits et remboursements",
+   mots:"organisme de services publics osp obnl organisme de bienfaisance municipalité école université hôpital remboursement partiel 50 % 100 %",
+   resume:"Les OSP récupèrent une partie de la taxe payée sur leurs activités exonérées selon des pourcentages fixés par la loi.",
+   points:[
+     "TPS : organismes de bienfaisance et OBNL admissibles 50 % ; municipalités 100 % ; écoles 68 % ; universités et collèges publics 67 % ; hôpitaux 83 %.",
+     "TVQ : organismes de bienfaisance et OBNL admissibles 50 % ; municipalités 50 % ; autres secteurs selon les taux propres à la TVQ (à vérifier).",
+     "OBNL admissible : financement public d'au moins 40 %.",
+     "Plusieurs fournitures des OBNL et organismes de bienfaisance sont exonérées, mais certaines restent taxables (ventes de biens à leur juste valeur, etc.)."
+   ],
+   refs:["LTA art. 259","LTA annexe V, parties V.1 et VI","LTVQ art. 385"],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"methodes", titre:"Méthode rapide et méthode simplifiée", regimes:["tps","tvq"], cat:"Déclarations",
+   mots:"méthode rapide de comptabilité méthode simplifiée 400 000 $ taux réduit petite entreprise comptabilité abrégée",
+   resume:"Des méthodes allégées permettent aux petites entreprises de calculer leur taxe nette sans suivre chaque CTI/RTI.",
+   points:[
+     "Méthode rapide : admissible si les fournitures taxables annuelles (avec les personnes associées) ne dépassent pas 400 000 $. La taxe nette = un pourcentage des ventes taxes comprises ; les CTI/RTI sur les immobilisations restent demandés séparément.",
+     "Certaines entités ne sont pas admissibles : services juridiques, comptables, financiers, entre autres.",
+     "Méthode simplifiée de calcul des CTI : pour les inscrits dont les fournitures taxables et les achats taxables ne dépassent pas les seuils réglementaires.",
+     "Il faut produire un choix (formulaire) avant d'utiliser la méthode rapide."
+   ],
+   refs:["LTA art. 227","Règlement sur la comptabilité abrégée (TPS/TVH)","LTVQ art. 434"],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"declarations", titre:"Périodes de déclaration, échéances et acomptes", regimes:["tps","tvq"], cat:"Déclarations",
+   mots:"déclaration période mensuelle trimestrielle annuelle 1,5 m$ 6 m$ échéance paiement acomptes provisionnels 3 000 $ 30 avril 15 juin taxe nette",
+   resume:"La fréquence de déclaration dépend des fournitures taxables annuelles ; l'échéance générale est d'un mois après la fin de la période.",
+   points:[
+     "Fournitures taxables de 1,5 M$ ou moins : annuelle (option trimestrielle ou mensuelle). Plus de 1,5 M$ jusqu'à 6 M$ : trimestrielle. Plus de 6 M$ : mensuelle.",
+     "Échéance : un mois après la fin de la période mensuelle ou trimestrielle ; trois mois après la fin de l'exercice pour une déclaration annuelle.",
+     "Particulier avec revenu d'entreprise et exercice au 31 décembre : déclaration annuelle au 15 juin, paiement au 30 avril.",
+     "Déclarants annuels : acomptes provisionnels trimestriels si la taxe nette de l'année précédente atteint 3 000 $.",
+     "Les déclarations TPS et TVQ sont produites ensemble auprès de Revenu Québec pour la plupart des inscrits du Québec."
+   ],
+   refs:["LTA art. 225","LTA art. 237","LTA art. 238","LTA art. 245","LTVQ art. 428","LTVQ art. 458.0.1","LTVQ art. 459","LTVQ art. 468"],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps],["TPS/TVH et TVQ (Revenu Québec)",L.rq]] },
+
+ { id:"cotisation", titre:"Cotisations, oppositions et divulgations volontaires", regimes:["tps","tvq"], cat:"Contentieux",
+   mots:"cotisation nouvelle cotisation quatre ans prescription avis d'opposition 90 jours appel cour canadienne de l'impôt cour du québec divulgation volontaire intérêts pénalités",
+   resume:"Le fisc peut cotiser dans les quatre ans ; le contribuable a 90 jours pour s'opposer.",
+   points:[
+     "TPS : délai de cotisation de quatre ans en général, sans limite en cas de fraude ou de fausse déclaration par négligence.",
+     "Avis d'opposition : 90 jours après l'envoi de l'avis de cotisation. Prorogation possible dans l'année suivant l'expiration du délai.",
+     "TPS : appel à la Cour canadienne de l'impôt après la décision sur l'opposition, ou si 180 jours passent sans décision. TVQ : la procédure relève de la Loi sur l'administration fiscale (opposition, puis appel à la Cour du Québec).",
+     "Au Québec, Revenu Québec administre aussi la TPS : les oppositions TPS d'un inscrit québécois passent généralement par Revenu Québec.",
+     "Divulgation volontaire : programme de l'ARC et programme de Revenu Québec, avec allègement possible des pénalités et d'une partie des intérêts."
+   ],
+   refs:["LTA art. 298","LTA art. 301","LTA art. 306","LAF art. 25","LAF art. 93.1.1 et s."],
+   liens:[["Loi sur l'administration fiscale",L.laf],["Cour canadienne de l'impôt",L.cci],["CanLII (jurisprudence)",L.canlii]] },
+
+ { id:"reorg", titre:"Personnes liées, choix et vente d'entreprise", regimes:["tps","tvq"], cat:"Planification",
+   mots:"choix article 156 groupe étroitement lié 167 vente d'une entreprise réorganisation fusion liquidation associé formulaire rc4616 fp-2616",
+   resume:"Des choix permettent d'éviter la taxe sur les opérations internes d'un groupe ou lors de la vente d'une entreprise.",
+   points:[
+     "Choix pour les membres d'un groupe étroitement lié (art. 156) : les fournitures taxables entre membres sont réputées faites sans contrepartie. Participation de 90 % ou plus exigée et activités exclusivement commerciales.",
+     "Choix lors de la vente d'une entreprise ou d'une partie d'entreprise (art. 167) : aucune taxe si l'acquéreur acquiert la totalité ou presque des biens nécessaires à l'exploitation.",
+     "Fusions et liquidations : la nouvelle société est réputée être la même personne que les sociétés fusionnées.",
+     "En TVQ, les dispositions correspondantes sont les art. 334 (groupe étroitement lié), 75 (vente d'entreprise) et 76 (fusion) ; les choix doivent aussi être produits pour la TVQ."
+   ],
+   refs:["LTA art. 156","LTA art. 167","LTA art. 271","LTVQ art. 334","LTVQ art. 75","LTVQ art. 76"],
+   liens:[["Loi sur la taxe d'accise",L.lta],["Loi sur la taxe de vente du Québec",L.ltvq]] },
+
+ { id:"facturation", titre:"Facturation, prix et registres", regimes:["tps","tvq"], cat:"Notions de base",
+   mots:"facture prix taxes incluses mention numéro d'inscription registres conservation six ans arrondi",
+   resume:"La facture doit permettre au client de demander ses CTI/RTI ; les registres se conservent six ans.",
+   points:[
+     "Indiquer la taxe exigée séparément, ou une mention que le prix inclut les taxes (art. 223 LTA). Le numéro d'inscription du fournisseur est exigé par le règlement sur les renseignements nécessaires aux CTI (factures de 100 $ et plus).",
+     "Au Québec, la TVQ se calcule sur le prix sans la TPS.",
+     "Registres : à conserver pendant six ans après la fin de l'année à laquelle ils se rapportent.",
+     "Les renseignements exigés varient selon le montant : voir la fiche « CTI et RTI »."
+   ],
+   refs:["LTA art. 223","LTA art. 286","LTVQ art. 425"],
+   liens:[["TPS/TVH pour les entreprises (ARC)",L.arcTps]] }
+];
+
+const PROVINCES = [
+  { code:"QC", nom:"Québec", tps:5, tvh:0, tvq:9.975 },
+  { code:"ON", nom:"Ontario", tps:0, tvh:13, tvq:0 },
+  { code:"NS", nom:"Nouvelle-Écosse", tps:0, tvh:14, tvq:0 },
+  { code:"NB", nom:"Nouveau-Brunswick", tps:0, tvh:15, tvq:0 },
+  { code:"NL", nom:"Terre-Neuve-et-Labrador", tps:0, tvh:15, tvq:0 },
+  { code:"PE", nom:"Île-du-Prince-Édouard", tps:0, tvh:15, tvq:0 },
+  { code:"AB", nom:"Alberta", tps:5, tvh:0, tvq:0 },
+  { code:"BC", nom:"Colombie-Britannique", tps:5, tvh:0, tvq:0, tvp:true },
+  { code:"MB", nom:"Manitoba", tps:5, tvh:0, tvq:0, tvp:true },
+  { code:"SK", nom:"Saskatchewan", tps:5, tvh:0, tvq:0, tvp:true },
+  { code:"YT", nom:"Yukon", tps:5, tvh:0, tvq:0 },
+  { code:"NT", nom:"Territoires du Nord-Ouest", tps:5, tvh:0, tvq:0 },
+  { code:"NU", nom:"Nunavut", tps:5, tvh:0, tvq:0 }
+];
+
+const NOUVEAUTES = [
+  { date:"1er avril 2025", regime:"tps", titre:"TVH de la Nouvelle-Écosse ramenée à 14 %", texte:"La partie provinciale passe de 10 % à 9 %. Des règles transitoires visent les biens, les services et les habitations (avis TPS/TVH 342 et 343).", lien:["Avis TPS/TVH 342",L.arcAvis342] },
+  { date:"12 mars 2026", regime:"tps", titre:"Remboursement de TPS pour les acheteurs d'une première habitation", texte:"Le projet de loi C-4 est sanctionné. Remboursement jusqu'à 50 000 $ sur les habitations neuves de 1,5 M$ ou moins, pour les contrats conclus après le 26 mai 2025 et avant 2031.", lien:["Page de l'ARC",L.arcAph] },
+  { date:"1er juillet 2026", regime:"tps", titre:"Commissions de suivi des fonds communs taxables", texte:"Les commissions de suivi versées aux courtiers sont traitées comme des fournitures taxables et non comme des services financiers exonérés. Revenu Québec harmonise la TVQ.", lien:["Nouvelle fiscale de Revenu Québec",L.rqSuivi] },
+  { date:"15 juillet 2026", regime:"tvq", titre:"Détaxation TVQ de certains aliments et produits d'hygiène", texte:"Produits de boulangerie en petites portions, granola, barres céréalières, petits formats de crème glacée, papier hygiénique et mouchoirs, entre autres. La TPS continue de s'appliquer lorsqu'elle s'appliquait déjà. Exclusions : restaurants, distributeurs automatiques, traiteurs.", lien:["Précisions de Revenu Québec (7 août 2026)",L.rqDetax2026] }
+];
+
+const SOURCES = [
+  ["Loi sur la taxe d'accise (L.R.C. 1985, ch. E-15)", L.lta, "Partie IX : TPS/TVH. Texte officiel, Justice Canada."],
+  ["Loi sur la taxe de vente du Québec (RLRQ, c. T-0.1)", L.ltvq, "Texte officiel, LégisQuébec."],
+  ["Loi sur l'administration fiscale (RLRQ, c. A-6.002)", L.laf, "Cotisations, oppositions et pénalités au Québec."],
+  ["TPS/TVH pour les entreprises (ARC)", L.arcTps, "Guides, inscription, déclarations, remboursements."],
+  ["TPS/TVH et TVQ (Revenu Québec)", L.rq, "Règles de base, types de fournitures, inscription."],
+  ["Nouvelles fiscales de Revenu Québec", L.rqNouvelles, "Annonces et précisions administratives récentes."],
+  ["Publications du ministère des Finances du Québec", L.finQc, "Bulletins d'information fiscale et budgets."],
+  ["Calculatrice et tableau des taux (ARC)", L.arcTaux, "Historique des taux de TVH par province."],
+  ["CanLII", L.canlii, "Jurisprudence de la Cour canadienne de l'impôt et de la Cour du Québec."],
+  ["Cour canadienne de l'impôt", L.cci, "Procédure d'appel en matière de TPS/TVH."]
+];
+
+/* ================= UTILITAIRES ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const norm = s => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const money = n => n.toLocaleString("fr-CA", { style:"currency", currency:"CAD" });
+const pct = n => n.toLocaleString("fr-CA", { maximumFractionDigits:3 }) + " %";
+const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ================= NAVIGATION ================= */
+const VIEWS = ["recherche","assistant","calculateur","taux","nouveautes","sources"];
+function route() {
+  const h = location.hash.replace("#", "");
+  const v = VIEWS.includes(h) ? h : "recherche";
+  VIEWS.forEach(n => { $("#v-" + n).hidden = n !== v; });
+  document.querySelectorAll("nav a").forEach(a => {
+    if (a.dataset.view === v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+}
+window.addEventListener("hashchange", route);
+
+/* ================= RECHERCHE ================= */
+const CATS = [...new Set(FICHES.map(f => f.cat))];
+let activeCat = "";
+function haystack(f) { return norm([f.titre, f.mots, f.resume, f.cat, ...f.points, ...f.refs].join(" ")); }
+FICHES.forEach(f => { f._h = haystack(f); });
+
+function score(f, terms) {
+  if (!terms.length) return 1;
+  let s = 0;
+  for (const t of terms) {
+    if (!f._h.includes(t)) return 0;
+    if (norm(f.titre).includes(t)) s += 5;
+    if (norm(f.mots).includes(t)) s += 3;
+    s += 1;
+  }
+  return s;
+}
+function terms(q) { return norm(q).split(/[\s,;]+/).filter(t => t.length > 1 && !["la","le","les","de","des","du","et","en","un","une","au","aux","sur","pour","art","article"].includes(t)); }
+function highlight(text, ts) {
+  // surlignage insensible aux accents : positions repérées dans le texte normalisé (même longueur)
+  const src = norm(text); let ranges = [];
+  ts.filter(t => t.length >= 3).forEach(t => {
+    let i = 0, idx;
+    while ((idx = src.indexOf(t, i)) !== -1) { ranges.push([idx, idx + t.length]); i = idx + t.length; }
+  });
+  if (!ranges.length) return esc(text);
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  ranges.forEach(r => { const m = merged[merged.length - 1]; if (m && r[0] <= m[1]) m[1] = Math.max(m[1], r[1]); else merged.push(r.slice()); });
+  let res = "", last = 0;
+  merged.forEach(([a, b]) => { res += esc(text.slice(last, a)) + "<mark>" + esc(text.slice(a, b)) + "</mark>"; last = b; });
+  return res + esc(text.slice(last));
+}
+function search(q, regime, cat) {
+  const ts = terms(q);
+  return FICHES.map(f => ({ f, s: score(f, ts) }))
+    .filter(x => x.s > 0 && (!regime || x.f.regimes.includes(regime)) && (!cat || x.f.cat === cat))
+    .sort((a, b) => b.s - a.s).map(x => x.f);
+}
+function renderChips() {
+  const all = [["", "Tous les thèmes"], ...CATS.map(c => [c, c])];
+  $("#chips").innerHTML = all.map(([v, l]) => `<button type="button" class="chip" data-cat="${esc(v)}" aria-pressed="${v === activeCat}">${esc(l)}</button>`).join("");
+}
+function renderCards() {
+  const q = $("#q").value, regime = $("#regime").value;
+  const res = search(q, regime, activeCat);
+  const ts = terms(q);
+  $("#count").textContent = res.length + (res.length > 1 ? " fiches" : " fiche") + (q ? " pour « " + q + " »" : "");
+  if (!res.length) {
+    $("#cards").innerHTML = `<div class="empty">Aucune fiche ne correspond. Essayez un autre mot-clé, ou posez la question à l'<a href="#assistant" id="to-ai">assistant</a>.</div>`;
+    const a = $("#to-ai"); if (a) a.addEventListener("click", () => { $("#ask-q").value = q; });
+    return;
+  }
+  $("#cards").innerHTML = res.map(f => `
+    <details class="card" id="fiche-${f.id}" ${ts.length && res.length <= 3 ? "open" : ""}>
+      <summary>
+        <div class="card-head">
+          <span class="card-title">${highlight(f.titre, ts)}</span>
+          ${f.regimes.includes("tps") ? '<span class="tag tps">TPS/TVH</span>' : ""}
+          ${f.regimes.includes("tvq") ? '<span class="tag tvq">TVQ</span>' : ""}
+          ${f.nouveau ? '<span class="tag new">Nouveau 2026</span>' : ""}
+          <span class="tag cat">${esc(f.cat)}</span>
+        </div>
+        <div class="card-sum">${highlight(f.resume, ts)}</div>
+      </summary>
+      <div class="card-body">
+        <ul>${f.points.map(p => `<li>${highlight(p, ts)}</li>`).join("")}</ul>
+        <div class="refs">${f.refs.map(r => `<span class="ref">${esc(r)}</span>`).join("")}</div>
+        <div class="links">${f.liens.map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join("")}</div>
+        <div class="card-actions"><button type="button" class="btn ghost" data-ask="${f.id}">Poser une question sur ce sujet</button></div>
+      </div>
+    </details>`).join("");
+}
+$("#q").addEventListener("input", () => { renderCards(); store.set("q", $("#q").value); });
+$("#regime").addEventListener("change", renderCards);
+$("#chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  activeCat = b.dataset.cat; renderChips(); renderCards();
+});
+$("#cards").addEventListener("click", e => {
+  const b = e.target.closest("[data-ask]"); if (!b) return;
+  const f = FICHES.find(x => x.id === b.dataset.ask);
+  $("#ask-q").value = "Concernant « " + f.titre + " » : ";
+  location.hash = "assistant";
+  setTimeout(() => { const t = $("#ask-q"); t.focus(); t.setSelectionRange(t.value.length, t.value.length); }, 50);
+});
+
+/* ================= ASSISTANT ================= */
+const EXEMPLES = [
+  "Un consultant inscrit au Québec facture un client situé en Ontario. Quelle taxe doit-il facturer ?",
+  "Quand une entreprise qui démarre doit-elle s'inscrire à la TPS et à la TVQ ?",
+  "Quels renseignements doit contenir une facture de 750 $ pour que je puisse demander le CTI et le RTI ?",
+  "Un logiciel vendu par abonnement à une entreprise américaine est-il détaxé ?"
+];
+$("#examples").innerHTML = EXEMPLES.map((e, i) => `<button type="button" class="chip" data-ex="${i}">${esc(e.length > 60 ? e.slice(0, 58) + "…" : e)}</button>`).join("");
+$("#examples").addEventListener("click", e => { const b = e.target.closest("[data-ex]"); if (b) $("#ask-q").value = EXEMPLES[+b.dataset.ex]; });
+
+let sampleFn = null, controller = null;
+function mdToHtml(md) {
+  const lines = esc(md).split("\n"); let html = "", list = null;
+  const inline = s => s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const close = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (const raw of lines) {
+    const l = raw.trimEnd();
+    let m;
+    if (/^#{1,4}\s/.test(l)) { close(); html += `<h3>${inline(l.replace(/^#{1,4}\s/, ""))}</h3>`; }
+    else if ((m = l.match(/^\s*[-*•]\s+(.*)/))) { if (list !== "ul") { close(); html += "<ul>"; list = "ul"; } html += `<li>${inline(m[1])}</li>`; }
+    else if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { close(); html += "<ol>"; list = "ol"; } html += `<li>${inline(m[1])}</li>`; }
+    else if (!l.trim()) { close(); }
+    else { close(); html += `<p>${inline(l)}</p>`; }
+  }
+  close(); return html;
+}
+function ficheText(f) {
+  return `### ${f.titre}\n${f.resume}\n${f.points.map(p => "- " + p).join("\n")}\nRéférences : ${f.refs.join(" ; ")}\nLiens : ${f.liens.map(l => l[0] + " " + l[1]).join(" ; ")}`;
+}
+function buildPrompt(q, ctx) {
+  return `Tu es un assistant de recherche en taxes à la consommation canadiennes et québécoises (TPS/TVH selon la Loi sur la taxe d'accise, partie IX, et TVQ selon la Loi sur la taxe de vente du Québec). L'utilisateur est un professionnel qui fait sa propre recherche. Date du jour : 20 novembre 2026.
+
+Règles :
+- Réponds en français, de façon précise et technique.
+- Limite-toi à la TPS/TVH et à la TVQ. Si la question porte sur un autre sujet (impôt sur le revenu, TVP d'autres provinces, taxes spécifiques), dis-le brièvement.
+- Appuie-toi d'abord sur les fiches de référence ci-dessous, vérifiées le 20 novembre 2026. Si tu ajoutes des éléments hors fiches, signale qu'ils sont à vérifier.
+- Cite les articles de loi (LTA, LTVQ, LAF, règlements) seulement si tu es raisonnablement certain du numéro ; sinon, indique « article à confirmer ».
+- Traite séparément la TPS/TVH et la TVQ lorsque les règles diffèrent.
+- Si des faits manquent pour conclure, nomme-les et donne la réponse pour chaque hypothèse plausible.
+- N'invente jamais d'URL : utilise seulement les liens présents dans les fiches.
+
+Format (Markdown, titres de niveau 3) :
+### Réponse courte
+(2 à 4 phrases)
+### Analyse
+(points clés, distinction TPS/TVH et TVQ)
+### Références législatives
+(liste)
+### Sources à consulter
+(liens tirés des fiches)
+### Points à vérifier
+(faits manquants, exceptions, positions administratives à confirmer)
+
+FICHES DE RÉFÉRENCE :
+${ctx.length ? ctx.map(ficheText).join("\n\n") : "(aucune fiche pertinente trouvée)"}
+
+QUESTION :
+${q}`;
+}
+function renderHistory() {
+  const h = store.get("hist", []);
+  $("#history").innerHTML = h.length ? `<h3>Questions récentes</h3>` + h.map((x, i) => `<button type="button" data-h="${i}">${esc(x.q.length > 110 ? x.q.slice(0, 108) + "…" : x.q)}</button>`).join("") : "";
+}
+$("#history").addEventListener("click", e => {
+  const b = e.target.closest("[data-h]"); if (!b) return;
+  const x = store.get("hist", [])[+b.dataset.h]; if (!x) return;
+  $("#ask-q").value = x.q;
+  $("#answer").innerHTML = `<div class="answer">${mdToHtml(x.a)}</div>`;
+});
+async function ask() {
+  const q = $("#ask-q").value.trim();
+  if (!q) { $("#ask-status").textContent = "Écrivez d'abord une question."; return; }
+  if (!sampleFn) return;
+  const ctx = search(q, "", "").slice(0, 4);
+  controller = new AbortController();
+  $("#ask-btn").disabled = true; $("#ask-stop").hidden = false;
+  $("#ask-status").textContent = "Recherche en cours…";
+  $("#answer").innerHTML = `<div class="answer"><p class="note">Analyse de la question…</p></div>`;
+  const box = $("#answer .answer");
+  try {
+    const res = await sampleFn(buildPrompt(q, ctx), {
+      modelTier: "complex", signal: controller.signal, cache: false,
+      onText: ({ text }) => { box.innerHTML = mdToHtml(text); }
+    });
+    box.innerHTML = mdToHtml(res.text) + (ctx.length ? `<p class="ctx">Fiches utilisées : ${ctx.map(f => `<a href="#recherche" data-goto="${f.id}">${esc(f.titre)}</a>`).join(", ")}</p>` : "");
+    const h = store.get("hist", []); h.unshift({ q, a: res.text }); store.set("hist", h.slice(0, 8)); renderHistory();
+    $("#ask-status").textContent = res.truncated ? "Réponse tronquée : précisez la question pour une réponse plus courte." : "";
+  } catch (err) {
+    if (err && err.code === "not_granted") { $("#ask-status").textContent = "L'accès à Claude n'a pas été autorisé pour cette page."; }
+    else if (err && err.code === "rate_limited") { $("#ask-status").textContent = "Trop de demandes. Réessayez dans un moment."; }
+    else if (err && err.name === "AbortError") { $("#ask-status").textContent = "Recherche arrêtée."; if (err.text) box.innerHTML = mdToHtml(err.text); }
+    else { $("#ask-status").textContent = "La recherche a échoué. Réessayez."; if (err && err.text) box.innerHTML = mdToHtml(err.text); }
+  } finally {
+    $("#ask-btn").disabled = false; $("#ask-stop").hidden = true; controller = null;
+  }
+}
+$("#ask-btn").addEventListener("click", ask);
+$("#ask-stop").addEventListener("click", () => { if (controller) controller.abort(); });
+$("#answer").addEventListener("click", e => {
+  const a = e.target.closest("[data-goto]"); if (!a) return;
+  e.preventDefault();
+  $("#q").value = ""; activeCat = ""; renderChips(); renderCards();
+  location.hash = "recherche";
+  setTimeout(() => { const d = $("#fiche-" + a.dataset.goto); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }, 50);
+});
+function assistantUnavailable() {
+  $("#ask-btn").disabled = true;
+  $("#ai-notice").innerHTML = 'L\'assistant fonctionne seulement dans la version claude.ai (connexion à votre compte Claude requise) : <a href="https://claude.ai/artifact/EV6UrwyWk62KbHe6cnHSay" target="_blank" rel="noopener">ouvrir la version avec assistant ↗</a>. Ici, utilisez l\'onglet Recherche, le calculateur et les sources officielles.';
+}
+(async () => {
+  $("#ask-btn").disabled = true;
+  try {
+    if (window.claude && typeof window.claude.use === "function") {
+      sampleFn = await window.claude.use("sample");
+    }
+  } catch (e) { sampleFn = null; }
+  if (sampleFn) $("#ask-btn").disabled = false; else assistantUnavailable();
+})();
+
+/* ================= CALCULATEUR ================= */
+let dir = "add";
+$("#prov").innerHTML = PROVINCES.map(p => `<option value="${p.code}">${esc(p.nom)}</option>`).join("");
+function compute() {
+  const p = PROVINCES.find(x => x.code === $("#prov").value);
+  const amt = Math.max(0, parseFloat($("#amt").value) || 0);
+  const totalRate = (p.tps + p.tvh + p.tvq) / 100;
+  const base = dir === "add" ? amt : round2(amt / (1 + totalRate));
+  const lines = [];
+  if (p.tps) lines.push(["TPS", p.tps, round2(base * p.tps / 100)]);
+  if (p.tvh) lines.push(["TVH", p.tvh, round2(base * p.tvh / 100)]);
+  if (p.tvq) lines.push(["TVQ", p.tvq, round2(base * p.tvq / 100)]);
+  const taxes = round2(lines.reduce((s, l) => s + l[2], 0));
+  const total = dir === "add" ? round2(base + taxes) : amt;
+  let rows = `<tr><th>Élément</th><th class="num">Taux</th><th class="num">Montant</th></tr>`;
+  rows += `<tr><td>Montant avant taxes</td><td class="num"></td><td class="num">${money(base)}</td></tr>`;
+  lines.forEach(([n, r, m]) => { rows += `<tr><td>${n}</td><td class="num">${pct(r)}</td><td class="num">${money(m)}</td></tr>`; });
+  rows += `<tr><td>Total des taxes</td><td class="num">${pct(totalRate * 100)}</td><td class="num">${money(taxes)}</td></tr>`;
+  rows += `<tr class="total"><td>Total taxes comprises</td><td class="num"></td><td class="num">${money(total)}</td></tr>`;
+  if (dir === "ext" && round2(base + taxes) !== round2(amt)) {
+    rows += `<tr><td colspan="3" class="note">Écart d'arrondi de ${money(round2(amt - base - taxes))} entre le total saisi et la somme recalculée.</td></tr>`;
+  }
+  $("#calc-out").innerHTML = rows;
+  $("#prov-note").textContent = p.tvp ? "Cette province impose aussi une taxe de vente provinciale (TVP) distincte, non calculée ici." : (p.tvh ? "Province participante : une seule taxe harmonisée." : "");
+}
+function setDir(d) {
+  dir = d;
+  $("#dir-add").setAttribute("aria-pressed", d === "add");
+  $("#dir-ext").setAttribute("aria-pressed", d === "ext");
+  $("#amt-label").textContent = d === "add" ? "Montant avant taxes ($)" : "Montant taxes comprises ($)";
+  compute();
+}
+$("#dir-add").addEventListener("click", () => setDir("add"));
+$("#dir-ext").addEventListener("click", () => setDir("ext"));
+$("#amt").addEventListener("input", compute);
+$("#prov").addEventListener("change", compute);
+
+/* ================= TAUX, NOUVEAUTÉS, SOURCES ================= */
+$("#rates").innerHTML = `<tr><th>Province ou territoire</th><th>Régime</th><th class="num">TPS</th><th class="num">TVH</th><th class="num">TVQ</th><th class="num">Total</th></tr>` +
+  PROVINCES.map(p => `<tr><td>${esc(p.nom)}</td><td>${p.tvh ? "TVH" : p.tvq ? "TPS + TVQ" : "TPS" + (p.tvp ? " (+ TVP distincte)" : "")}</td>
+  <td class="num">${p.tps ? pct(p.tps) : "—"}</td><td class="num">${p.tvh ? pct(p.tvh) : "—"}</td><td class="num">${p.tvq ? pct(p.tvq) : "—"}</td>
+  <td class="num"><strong>${pct(p.tps + p.tvh + p.tvq)}</strong></td></tr>`).join("");
+
+$("#timeline").innerHTML = NOUVEAUTES.map(n => `
+  <div class="tl"><time>${esc(n.date)}</time>
+    <div><div class="card-head"><strong>${esc(n.titre)}</strong>${n.regime === "tps" ? '<span class="tag tps">TPS/TVH</span>' : '<span class="tag tvq">TVQ</span>'}</div>
+    <p>${esc(n.texte)}</p><p><a href="${esc(n.lien[1])}" target="_blank" rel="noopener">${esc(n.lien[0])} ↗</a></p></div>
+  </div>`).join("");
+
+$("#srcgrid").innerHTML = SOURCES.map(([t, u, d]) => `<div class="src"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a><span>${esc(d)}</span></div>`).join("");
+
+/* ================= VERSION EN LIGNE ================= */
+// Date de la dernière mise à jour du contenu (modifiée par la tâche hebdomadaire).
+const DERNIERE_MISE_A_JOUR = "20 novembre 2026";
+const URL_EN_LIGNE = "https://yassinebtd2-blip.github.io/recherche-taxes-tps-tvq/";
+const URL_CLAUDE = "https://claude.ai/artifact/EV6UrwyWk62KbHe6cnHSay";
+$("#stamp").textContent = "Contenu et articles vérifiés le " + DERNIERE_MISE_A_JOUR;
+// Le fichier ouvert depuis l'ordinateur redirige vers la version en ligne, toujours à jour.
+if (location.protocol === "file:" && location.hash !== "#local" && navigator.onLine) {
+  $("#redirect-banner").hidden = false;
+  const t = setTimeout(() => { location.replace(URL_EN_LIGNE); }, 1500);
+  $("#stay-local").addEventListener("click", () => { clearTimeout(t); $("#redirect-banner").hidden = true; });
+}
+
+/* ================= DÉMARRAGE ================= */
+$("#q").value = store.get("q", "");
+renderChips(); renderCards(); renderHistory(); compute(); route();
+</script>
+</body>
+</html>
